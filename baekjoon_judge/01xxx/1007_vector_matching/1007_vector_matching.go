@@ -1,143 +1,78 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"math"
-	"os"
+    "bufio"
+    "fmt"
+    "math"
+    "os"
 )
 
 // Node -
 type Node struct {
-	num, x, y int
-}
-
-// Vector -
-type Vector struct {
-	stN, edN, vx, vy int
+    x, y int
 }
 
 // Length - return length vector selfs
-func (v Vector) Length() float64 {
-	return math.Sqrt(math.Pow(float64(v.vx), 2) + math.Pow(float64(v.vy), 2))
+func (n Node) Length() float64 {
+    return math.Sqrt(math.Pow(float64(n.x), 2) + math.Pow(float64(n.y), 2))
 }
 
-func getVector(a, b Node) Vector {
-	return Vector{
-		stN: a.num, edN: b.num,
-		vx: b.x - a.x, vy: b.y - a.y,
-	}
+// Add - return additional vector
+func (n Node) Add(n2 Node) Node {
+    return Node{
+        x: n.x + n2.x, y: n.y + n2.y,
+    }
 }
+
+// Sub - return substract vector
+func (n Node) Sub(n2 Node) Node {
+    return Node{
+        x: n.x - n2.x, y: n.y - n2.y,
+    }
+}
+
+func backTracking(nodes []Node, N, idx, cnt int, nodeSum Node, nodeSum2 Node) {
+    nodeSum2 = nodeSum2.Add(nodes[idx])
+    if cnt >= N/2 {
+        nodeSum3 := nodeSum.Sub(nodeSum2)
+        res := nodeSum2.Sub(nodeSum3)
+        //fmt.Printf("<%d,%d> - <%d,%d> = %.6f\n", nodeSum2.x, nodeSum2.y, nodeSum3.x, nodeSum3.y, res.Length())
+        min = math.Min(min, res.Length())
+        return
+    }
+    for j := idx + 1; j < N; j++ {
+        backTracking(nodes, N, j, cnt+1, nodeSum, nodeSum2)
+    }
+}
+
+var min float64
 
 func main() {
-	var T int
-	var N, M int
+    var T int
+    var N int
 
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Split(bufio.ScanWords)
+    scanner := bufio.NewScanner(os.Stdin)
 
-	scanner.Scan()
-	fmt.Sscan(scanner.Text(), &T)
+    scanner.Scan()
+    fmt.Sscan(scanner.Text(), &T)
 
-	for t := 0; t < T; t++ {
-		scanner.Scan()
-		fmt.Sscan(scanner.Text(), &N)
+    for t := 0; t < T; t++ {
+        scanner.Scan()
+        fmt.Sscan(scanner.Text(), &N)
 
-		node := make([]Node, N)
-		for i := 0; i < N; i++ {
-			scanner.Scan()
-			fmt.Sscan(scanner.Text(), &node[i].x)
-			scanner.Scan()
-			fmt.Sscan(scanner.Text(), &node[i].y)
-			node[i].num = i
-		}
+        node := make([]Node, N)
+        nodeSum := Node{0, 0}
+        for i := 0; i < N; i++ {
+            scanner.Scan()
+            fmt.Sscan(scanner.Text(), &node[i].x, &node[i].y)
+            nodeSum = nodeSum.Add(node[i])
+        }
 
-		// generate vector
-		M = 0
-		vector := make([]Vector, N*(N-1))
-		for i := 0; i < N; i++ {
-			for j := 0; j < N; j++ {
-				if i != j {
-					vector[M] = getVector(node[i], node[j])
-					M++
-				}
-			}
-		}
-		//fmt.Println(vector)
+        min = 1 << 32
+        for i := 0; i < N/2; i++ {
+            backTracking(node, N, i, 1, nodeSum, Node{0, 0})
+        }
 
-		// allocate DP tables
-		cap := N/2 + 1
-		d := make([][]float64, cap)
-		dVectorSum := make([][]Vector, cap)
-		dPointSet := make([][][]int, cap)
-		for i := 0; i < cap; i++ {
-			d[i] = make([]float64, M)
-			dVectorSum[i] = make([]Vector, M)
-			dPointSet[i] = make([][]int, M)
-			for j := 0; j < M; j++ {
-				dPointSet[i][j] = make([]int, N)
-			}
-		}
-
-		// initialize DP tables
-		for i := 0; i < M; i++ {
-			dVectorSum[1][i] = vector[i]
-			d[1][i] = vector[i].Length()
-			dPointSet[1][i][vector[i].stN] = 1
-			dPointSet[1][i][vector[i].edN] = 1
-		}
-
-		// run DP
-		for i := 2; i < cap; i++ {
-			for j := 0; j < M; j++ {
-				minLen := float64(1 << 30)
-				var minVx, minVy int
-				var minVec Vector
-				for k := 1; k <= j; k++ {
-					if d[i-1][j-k] != -1 && dPointSet[i-1][j-k][vector[j].stN] != 1 && dPointSet[i-1][j-k][vector[j].edN] != 1 {
-						vx := dVectorSum[i-1][j-k].vx + vector[j].vx
-						vy := dVectorSum[i-1][j-k].vy + vector[j].vy
-						len := math.Sqrt(math.Pow(float64(vx), 2) + math.Pow(float64(vy), 2))
-						if minLen > len {
-							minVx = vx
-							minVy = vy
-							minVec = vector[j]
-							minLen = len
-						}
-					} else if d[i][j-k] != -1 {
-						len := math.Sqrt(math.Pow(float64(dVectorSum[i][j-k].vx), 2) + math.Pow(float64(dVectorSum[i][j-k].vy), 2))
-						if minLen > len {
-							minVx = dVectorSum[i][j-k].vx
-							minVy = dVectorSum[i][j-k].vy
-							minVec = dVectorSum[i][j-k]
-							minLen = len
-						}
-					}
-				}
-				if minLen < float64(1<<29) {
-					d[i][j] = minLen
-					dVectorSum[i][j] = Vector{
-						stN: minVec.stN, edN: minVec.edN, vx: minVx, vy: minVy,
-					}
-					dPointSet[i][j][minVec.stN] = 1
-					dPointSet[i][j][minVec.edN] = 1
-				} else {
-					d[i][j] = -1
-				}
-			}
-		}
-
-		// for i := 0; i < M; i++ {
-		// 	fmt.Println(vector[i])
-		// }
-		//
-		// for i := 0; i < cap; i++ {
-		// 	for j := 0; j < M; j++ {
-		// 		fmt.Printf("%5.2f ", d[i][j])
-		// 	}
-		// 	fmt.Printf("\n")
-		// }
-		//print result
-		fmt.Printf("%.6f\n", d[cap-1][M-1])
-	}
+        fmt.Printf("%.6f\n", min)
+    }
 }
